@@ -142,7 +142,8 @@
     </div>
 
     <script>
-      const apiEndpoint = "/api/contacts"; // Updated to use relative path
+      const apiEndpoint =
+        "https://am6y2615c0.execute-api.ap-south-1.amazonaws.com/first-page";
       let contacts = []; // Array to store contacts for filtering
       let editingContactId = null;
 
@@ -194,22 +195,29 @@
         fetch(apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ operation: "read" }),
+          body: JSON.stringify({ operation: "read" }), // Use POST with operation
         })
           .then((response) => {
             if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+              throw new Error(`HTTP error! status: ${response.status}`); // Handle HTTP errors
             }
             return response.json();
           })
           .then((data) => {
-            contacts = Array.isArray(data) ? data : [];
+            // Check if body is a JSON string and parse it
+            if (data.body) {
+              const parsedContacts = JSON.parse(data.body); // Parse the body
+              console.log("Parsed Contacts:", parsedContacts); // Log parsed contacts for debugging
+              contacts = Array.isArray(parsedContacts) ? parsedContacts : []; // Ensure contacts is an array
+            } else {
+              contacts = []; // Fallback if body is not present
+            }
             displayContacts(contacts);
           })
           .catch((error) => {
-            console.error("Error loading contacts:", error);
-            contacts = [];
-            displayContacts(contacts);
+            console.error("Error loading contacts:", error); // Log error for debugging
+            contacts = []; // Set contacts to empty array on error
+            displayContacts(contacts); // Call displayContacts with an empty array
           });
       }
 
@@ -221,16 +229,16 @@
           const contactItem = document.createElement("div");
           contactItem.className = "contact-item";
           contactItem.innerHTML = `
-                    <span>${contact.ID || "UNKNOWN"} - ${
+      <span>${contact.ID || "UNKNOWN"} - ${
             contact.PhoneNumber || "UNKNOWN"
           }</span>
-                    <button onclick="editContact('${contact.firstname}', '${
-            contact.lastname
-          }', '${contact.PhoneNumber}')">Edit</button>
-                    <button onclick="deleteContact('${contact.firstname} ${
-            contact.lastname
-          }')">Delete</button>
-                `;
+      <button onclick="editContact('${contact.ID}', '${
+            contact.ID.split(" ")[0]
+          }', '${contact.ID.split(" ")[1]}', '${
+            contact.PhoneNumber
+          }')">Edit</button>
+      <button onclick="deleteContact('${contact.ID}')">Delete</button>
+    `;
           contactList.appendChild(contactItem);
         });
       }
@@ -254,28 +262,33 @@
         document.getElementById("fName").value = fname;
         document.getElementById("lName").value = lname;
         document.getElementById("pNumber").value = pnumber;
+        showTab("add-tab");
         document.querySelector("#add-tab button").innerText = "Update Contact";
       }
 
       // Delete contact
-      function deleteContact(contactName) {
-        if (confirm(`Are you sure you want to delete ${contactName}?`)) {
-          const [fname, lname] = contactName.split(" ");
-          fetch(apiEndpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              operation: "delete",
-              firstname: fname,
-              lastname: lname,
-            }),
+      // Delete contact
+      // Delete contact
+      function deleteContact(id) {
+        const [firstname, lastname] = id.split(" "); // Split the ID to get firstname and lastname
+
+        fetch(apiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operation: "delete", firstname, lastname }), // Send correct JSON body
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`); // Handle HTTP errors
+            }
+            return response.json(); // Parse the response
           })
-            .then(() => {
-              alert("Contact deleted successfully");
-              loadContacts(); // Reload contacts after deletion
-            })
-            .catch((error) => console.log("Error:", error));
-        }
+          .then((data) => {
+            console.log("Delete response:", data); // Log delete response for debugging
+            alert("Contact deleted successfully"); // Notify user
+            loadContacts(); // Reload contacts
+          })
+          .catch((error) => console.error("Error deleting contact:", error)); // Log any errors
       }
     </script>
   </body>
