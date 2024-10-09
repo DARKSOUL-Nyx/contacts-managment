@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Enhanced Contact Management System</title>
+    <style>
+      /* Basic Page Styles */
+      body {
+        background-color: #282c34;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: Arial, sans-serif;
+        color: #ffffff;
+        margin: 0;
+      }
+
+      /* Tab Navigation Styles */
+      #tabs {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        background-color: #61dafb;
+        color: #282c34;
+        padding: 10px;
+        cursor: pointer;
+      }
+
+      .tab {
+        padding: 15px;
+        text-align: center;
+        flex: 1;
+        font-weight: bold;
+      }
+
+      /* Active Tab Content */
+      .tab-content {
+        display: none;
+        background-color: #3e444d;
+        padding: 20px;
+        border-radius: 8px;
+        width: 80%;
+        margin-top: 20px;
+        max-width: 500px;
+      }
+
+      /* Show Active Tab */
+      .active {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* Form and Input Styles */
+      label,
+      h2,
+      h3 {
+        color: #61dafb;
+      }
+
+      input,
+      button {
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 4px;
+        border: 1px solid #61dafb;
+        font-size: 16px;
+      }
+
+      input {
+        background-color: #f0f0f0;
+        color: #333;
+      }
+
+      button {
+        background-color: #61dafb;
+        color: #282c34;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      /* Contact List Styles */
+      .contact-item {
+        background-color: #484f58;
+        color: #ffffff;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .contact-item button {
+        background-color: #ff6f61;
+        color: white;
+        margin: 0 5px;
+        padding: 5px;
+      }
+
+      /* Search Filter and Search Result */
+      #search-filter {
+        margin: 20px 0;
+        padding: 10px;
+        width: 80%;
+        max-width: 500px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Tab Navigation -->
+    <div id="tabs">
+      <div class="tab" onclick="showTab('add-tab')">Add Contact</div>
+      <div class="tab" onclick="showTab('search-tab')">
+        Search & Manage Contacts
+      </div>
+    </div>
+
+    <!-- Add Contact Tab -->
+    <div id="add-tab" class="tab-content active">
+      <h2>Add Contact</h2>
+      <label>First Name:</label>
+      <input type="text" id="fName" />
+      <label>Last Name:</label>
+      <input type="text" id="lName" />
+      <label>Phone Number:</label>
+      <input type="text" id="pNumber" />
+      <button onclick="saveContact()">Add Contact</button>
+    </div>
+
+    <!-- Search and Manage Contacts Tab -->
+    <div id="search-tab" class="tab-content">
+      <h2>Search & Manage Contacts</h2>
+      <input
+        type="text"
+        id="search-filter"
+        placeholder="Search by name..."
+        oninput="filterContacts()"
+      />
+      <div id="contact-list"></div>
+    </div>
+
+    <script>
+      const apiEndpoint = "/api/contacts"; // Updated to use relative path
+      let contacts = []; // Array to store contacts for filtering
+      let editingContactId = null;
+
+      // Show selected tab content
+      function showTab(tabId) {
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((tab) => tab.classList.remove("active"));
+        document.getElementById(tabId).classList.add("active");
+        if (tabId === "search-tab") loadContacts();
+      }
+
+      // Save or update contact
+      function saveContact() {
+        const fname = document.getElementById("fName").value;
+        const lname = document.getElementById("lName").value;
+        const pnumber = document.getElementById("pNumber").value;
+
+        const operationType = editingContactId ? "update" : "create";
+
+        fetch(apiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operation: operationType,
+            firstname: fname,
+            lastname: lname,
+            phone_number: pnumber,
+          }),
+        })
+          .then(() => {
+            alert(
+              editingContactId
+                ? "Contact updated successfully"
+                : "Contact added successfully"
+            );
+            document.getElementById("fName").value = "";
+            document.getElementById("lName").value = "";
+            document.getElementById("pNumber").value = "";
+            editingContactId = null;
+            loadContacts();
+            document.querySelector("#add-tab button").innerText = "Add Contact";
+          })
+          .catch((error) => console.log("Error:", error));
+      }
+
+      // Load contacts for search and filter
+      function loadContacts() {
+        fetch(apiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operation: "read" }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            contacts = Array.isArray(data) ? data : [];
+            displayContacts(contacts);
+          })
+          .catch((error) => {
+            console.error("Error loading contacts:", error);
+            contacts = [];
+            displayContacts(contacts);
+          });
+      }
+
+      // Display contacts
+      function displayContacts(contactsToDisplay) {
+        const contactList = document.getElementById("contact-list");
+        contactList.innerHTML = ""; // Clear existing contacts
+        contactsToDisplay.forEach((contact) => {
+          const contactItem = document.createElement("div");
+          contactItem.className = "contact-item";
+          contactItem.innerHTML = `
+                    <span>${contact.ID || "UNKNOWN"} - ${
+            contact.PhoneNumber || "UNKNOWN"
+          }</span>
+                    <button onclick="editContact('${contact.firstname}', '${
+            contact.lastname
+          }', '${contact.PhoneNumber}')">Edit</button>
+                    <button onclick="deleteContact('${contact.firstname} ${
+            contact.lastname
+          }')">Delete</button>
+                `;
+          contactList.appendChild(contactItem);
+        });
+      }
+
+      // Filter contacts based on search input
+      function filterContacts() {
+        const query = document
+          .getElementById("search-filter")
+          .value.toLowerCase();
+        const filteredContacts = contacts.filter(
+          (contact) =>
+            (contact.firstname || "UNKNOWN").toLowerCase().includes(query) ||
+            (contact.lastname || "UNKNOWN").toLowerCase().includes(query)
+        );
+        displayContacts(filteredContacts);
+      }
+
+      // Edit contact
+      function editContact(fname, lname, pnumber) {
+        editingContactId = true; // Set editing flag
+        document.getElementById("fName").value = fname;
+        document.getElementById("lName").value = lname;
+        document.getElementById("pNumber").value = pnumber;
+        document.querySelector("#add-tab button").innerText = "Update Contact";
+      }
+
+      // Delete contact
+      function deleteContact(contactName) {
+        if (confirm(`Are you sure you want to delete ${contactName}?`)) {
+          const [fname, lname] = contactName.split(" ");
+          fetch(apiEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              operation: "delete",
+              firstname: fname,
+              lastname: lname,
+            }),
+          })
+            .then(() => {
+              alert("Contact deleted successfully");
+              loadContacts(); // Reload contacts after deletion
+            })
+            .catch((error) => console.log("Error:", error));
+        }
+      }
+    </script>
+  </body>
+</html>
